@@ -22,13 +22,16 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
-#if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
-	defined(__MK66FX1M0__) || defined(__MKL26Z64__)
-
 #include "Arduino.h"
 #include "MPU9250.h"
-#include "i2c_t3.h"  // I2C library
+
+// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+#if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+    defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+    #include "i2c_t3.h"  // I2C library
+#else
+    #include "Wire.h"
+#endif
 #include "SPI.h" // SPI Library
 
 /* MPU9250 object, input the I2C address and I2C bus */
@@ -38,6 +41,10 @@ MPU9250::MPU9250(uint8_t address, uint8_t bus){
     _userDefI2C = false; // automatic I2C setup
     _useSPI = false; // set to use I2C instead of SPI
 }
+
+// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+#if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+    defined(__MK66FX1M0__) || defined(__MKL26Z64__)
 
 /* MPU9250 object, input the I2C address, I2C bus, and I2C pins */
 MPU9250::MPU9250(uint8_t address, uint8_t bus, i2c_pins pins){
@@ -59,13 +66,23 @@ MPU9250::MPU9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups
     _useSPI = false; // set to use I2C instead of SPI
 }
 
+#endif
+
 /* MPU9250 object, input the SPI CS Pin */
 MPU9250::MPU9250(uint8_t csPin){
     _csPin = csPin; // SPI CS Pin
-    _mosiPin = MOSI_PIN_11;	// SPI MOSI Pin, set to default
+    // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+    #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+        defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+        _mosiPin = MOSI_PIN_11;	// SPI MOSI Pin, set to default
+    #endif
     _useSPI = true; // set to use SPI instead of I2C
     _useSPIHS = false; // defaul to low speed SPI transactions until data reads start to occur
 }
+
+// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+#if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+    defined(__MK66FX1M0__) || defined(__MKL26Z64__)
 
 /* MPU9250 object, input the SPI CS Pin and MOSI Pin */
 MPU9250::MPU9250(uint8_t csPin, spi_mosi_pin pin){
@@ -74,6 +91,8 @@ MPU9250::MPU9250(uint8_t csPin, spi_mosi_pin pin){
     _useSPI = true; // set to use SPI instead of I2C
     _useSPIHS = false; // defaul to low speed SPI transactions until data reads start to occur
 }
+
+#endif
 
 /* starts I2C communication and sets up the MPU-9250 */
 int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange){
@@ -85,8 +104,14 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
         // setting CS pin to output
         pinMode(_csPin,OUTPUT);
 
-        // setting CS pin high
-        digitalWriteFast(_csPin,HIGH);
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            // setting CS pin high
+            digitalWriteFast(_csPin,HIGH);
+        #else
+            digitalWrite(_csPin,HIGH);
+        #endif
 
         // Teensy 3.0 || Teensy 3.1/3.2
 		#if defined(__MK20DX128__) || defined(__MK20DX256__)
@@ -108,10 +133,8 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 	        		break;
 	        }
 
-        #endif
-
         // Teensy 3.5 || Teensy 3.6 
-		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+		#elif defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	        // configure and begin the SPI
 	        switch( _mosiPin ){
@@ -160,10 +183,8 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 	        		break;
 	        }
 
-        #endif
-
         // Teensy LC 
-		#if defined(__MKL26Z64__)
+		#elif defined(__MKL26Z64__)
 
 			// configure and begin the SPI
 	        switch( _mosiPin ){
@@ -194,13 +215,21 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
 	        		break;
 	        }
 
+        // Non-Teensy 3.x and Teensy LC devices
+        #else
+            SPI.begin();
 		#endif
     }
     else{ // using I2C for communication
 
         if( !_userDefI2C ) { // setup the I2C pins and pullups based on bus number if not defined by user
             /* setting the I2C pins, pullups, and protecting against _bus out of range */
-            _pullups = I2C_PULLUP_EXT; // default to external pullups
+
+            // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+            #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+                defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+                _pullups = I2C_PULLUP_EXT; // default to external pullups
+            #endif
 
             #if defined(__MK20DX128__) // Teensy 3.0
                 _pins = I2C_PINS_18_19;
@@ -261,8 +290,14 @@ int MPU9250::begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange)
             #endif
         }
 
-        // starting the I2C bus
-        i2c_t3(_bus).begin(I2C_MASTER, 0, _pins, _pullups, _i2cRate);
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            // starting the I2C bus
+            i2c_t3(_bus).begin(I2C_MASTER, 0, _pins, _pullups, _i2cRate);
+        #else
+            Wire.begin();
+            Wire.setClock(_i2cRate);
+        #endif
     }
 
     // select clock source to gyro
@@ -873,10 +908,8 @@ bool MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 		        SPI.endTransaction(); // end the transaction
 	    	}
 
-    	#endif
-
         // Teensy 3.5 || Teensy 3.6 
-		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+		#elif defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)||(_mosiPin == MOSI_PIN_28)){
 		        SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
@@ -903,10 +936,8 @@ bool MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 		        SPI2.endTransaction(); // end the transaction	
 	    	}
 
-    	#endif
-
         // Teensy LC 
-		#if defined(__MKL26Z64__)
+		#elif defined(__MKL26Z64__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)){
 		        SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
@@ -925,13 +956,31 @@ bool MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 		        SPI1.endTransaction(); // end the transaction
 	    	}
 
+        // Non-Teensy 3.x and Teensy LC devices
+        #else
+            SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
+            digitalWrite(_csPin,LOW); // select the MPU9250 chip
+            SPI.transfer(subAddress); // write the register address
+            SPI.transfer(data); // write the data
+            digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
+            SPI.endTransaction(); // end the transaction
     	#endif
     }
     else{
-      	i2c_t3(_bus).beginTransmission(_address); // open the device
-      	i2c_t3(_bus).write(subAddress); // write the register address
-      	i2c_t3(_bus).write(data); // write the data
-      	i2c_t3(_bus).endTransmission();
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+          	i2c_t3(_bus).beginTransmission(_address); // open the device
+          	i2c_t3(_bus).write(subAddress); // write the register address
+          	i2c_t3(_bus).write(data); // write the data
+          	i2c_t3(_bus).endTransmission();
+        // Non-Teensy 3.x and Teensy LC devices
+        #else
+            Wire.beginTransmission(_address); // open the device
+            Wire.write(subAddress); // write the register address
+            Wire.write(data); // write the data
+            Wire.endTransmission();
+        #endif
     }
     delay(10); // need to slow down how fast I write to MPU9250
 
@@ -975,10 +1024,8 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
 		        SPI.endTransaction(); // end the transaction
 	    	}
 
-    	#endif
-
         // Teensy 3.5 || Teensy 3.6 
-		#if defined(__MK64FX512__) || defined(__MK66FX1M0__)
+		#elif defined(__MK64FX512__) || defined(__MK66FX1M0__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)||(_mosiPin == MOSI_PIN_28)){
 		        // begin the transaction
@@ -1038,10 +1085,8 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
 		        SPI2.endTransaction(); // end the transaction
 	    	}
 
-    	#endif
-
         // Teensy LC 
-		#if defined(__MKL26Z64__)
+		#elif defined(__MKL26Z64__)
 
 	    	if((_mosiPin == MOSI_PIN_11)||(_mosiPin == MOSI_PIN_7)){
 		        // begin the transaction
@@ -1082,19 +1127,56 @@ void MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
 		        SPI1.endTransaction(); // end the transaction
 	    	}
 
+
+        // Non-Teensy 3.x and Teensy LC devices
+        #else
+            // begin the transaction
+            if(_useSPIHS){
+                SPI.beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
+            }
+            else{
+                SPI.beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
+            }
+            digitalWrite(_csPin,LOW); // select the MPU9250 chip
+
+            SPI.transfer(subAddress | SPI_READ); // specify the starting register address
+
+            for(uint8_t i = 0; i < count; i++){
+                dest[i] = SPI.transfer(0x00); // read the data
+            }
+
+            digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
+            SPI.endTransaction(); // end the transaction   
     	#endif
     }
     else{
-        i2c_t3(_bus).beginTransmission(_address); // open the device
-        i2c_t3(_bus).write(subAddress); // specify the starting register address
-        i2c_t3(_bus).endTransmission(false);
 
-        i2c_t3(_bus).requestFrom(_address, count); // specify the number of bytes to receive
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            i2c_t3(_bus).beginTransmission(_address); // open the device
+            i2c_t3(_bus).write(subAddress); // specify the starting register address
+            i2c_t3(_bus).endTransmission(false);
 
-        uint8_t i = 0; // read the data into the buffer
-        while( i2c_t3(_bus).available() ){
-            dest[i++] = i2c_t3(_bus).readByte();
-        }
+            i2c_t3(_bus).requestFrom(_address, count); // specify the number of bytes to receive
+
+            uint8_t i = 0; // read the data into the buffer
+            while( i2c_t3(_bus).available() ){
+                dest[i++] = i2c_t3(_bus).readByte();
+            }
+        // Non-Teensy 3.x and Teensy LC devices
+        #else
+            Wire.beginTransmission(_address); // open the device
+            Wire.write(subAddress); // specify the starting register address
+            Wire.endTransmission(false);
+
+            Wire.requestFrom(_address, count); // specify the number of bytes to receive
+
+            uint8_t i = 0; // read the data into the buffer
+            while( Wire.available() ){
+                dest[i++] = Wire.read();
+            }
+        #endif
     }
 }
 
@@ -1150,5 +1232,3 @@ uint8_t MPU9250::whoAmIAK8963(){
     // return the register value
     return buff[0];
 }
-
-#endif

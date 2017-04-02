@@ -26,7 +26,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #define MPU9250_h
 
 #include "Arduino.h"
-#include "i2c_t3.h"  // I2C library
+
+// Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+#if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+    defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+    #include "i2c_t3.h"  // I2C library
+#endif
 
 #ifndef SPI_MOSI_PIN
 #define SPI_MOSI_PIN
@@ -92,10 +97,18 @@ enum mpu9250_dlpf_bandwidth
 class MPU9250{
     public:
         MPU9250(uint8_t address, uint8_t bus);
-        MPU9250(uint8_t address, uint8_t bus, i2c_pins pins);
-        MPU9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            MPU9250(uint8_t address, uint8_t bus, i2c_pins pins);
+            MPU9250(uint8_t address, uint8_t bus, i2c_pins pins, i2c_pullup pullups);
+        #endif
         MPU9250(uint8_t csPin);
-        MPU9250(uint8_t csPin, spi_mosi_pin pin);
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            MPU9250(uint8_t csPin, spi_mosi_pin pin);
+        #endif
         int begin(mpu9250_accel_range accelRange, mpu9250_gyro_range gyroRange);
         int setFilt(mpu9250_dlpf_bandwidth bandwidth, uint8_t SRD);
         int enableInt(bool enable);
@@ -119,11 +132,19 @@ class MPU9250{
     private:
         uint8_t _address;
         uint8_t _bus;
-        i2c_pins _pins;
-        i2c_pullup _pullups;
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            i2c_pins _pins;
+            i2c_pullup _pullups;
+        #endif
         bool _userDefI2C;
         uint8_t _csPin;
-        spi_mosi_pin _mosiPin;
+        // Teensy 3.0 || Teensy 3.1/3.2 || Teensy 3.5 || Teensy 3.6 || Teensy LC 
+        #if defined(__MK20DX128__) || defined(__MK20DX256__) || defined(__MK64FX512__) || \
+            defined(__MK66FX1M0__) || defined(__MKL26Z64__)
+            spi_mosi_pin _mosiPin;
+        #endif
         bool _useSPI;
         bool _useSPIHS;
         float _accelScale;
