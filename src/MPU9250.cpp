@@ -21,40 +21,42 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#include "Arduino.h"
+#include <string.h>
+#include <cstdlib>
+
 #include "MPU9250.h"
 
 /* MPU9250 object, input the I2C bus and address */
-MPU9250::MPU9250(TwoWire &bus,uint8_t address){
+MPU9250::MPU9250(I2CDriver &bus,uint8_t address){
   _i2c = &bus; // I2C bus
   _address = address; // I2C address
   _useSPI = false; // set to use I2C
 }
 
 /* MPU9250 object, input the SPI bus and chip select pin */
-MPU9250::MPU9250(SPIClass &bus,uint8_t csPin){
-  _spi = &bus; // SPI bus
-  _csPin = csPin; // chip select pin
-  _useSPI = true; // set to use SPI
-}
+//MPU9250::MPU9250(SPIClass &bus,uint8_t csPin){
+//  _spi = &bus; // SPI bus
+//  _csPin = csPin; // chip select pin
+//  _useSPI = true; // set to use SPI
+//}
 
 /* starts communication with the MPU-9250 */
 int MPU9250::begin(){
-  if( _useSPI ) { // using SPI for communication
-    // use low speed SPI for register setting
-    _useSPIHS = false;
-    // setting CS pin to output
-    pinMode(_csPin,OUTPUT);
-    // setting CS pin high
-    digitalWrite(_csPin,HIGH);
-    // begin SPI communication
-    _spi->begin();
-  } else { // using I2C for communication
-    // starting the I2C bus
-    _i2c->begin();
-    // setting the I2C clock
-    _i2c->setClock(_i2cRate);
-  }
+//  if( _useSPI ) { // using SPI for communication
+//    // use low speed SPI for register setting
+//    _useSPIHS = false;
+//    // setting CS pin to output
+//    pinMode(_csPin,OUTPUT);
+//    // setting CS pin high
+//    digitalWrite(_csPin,HIGH);
+//    // begin SPI communication
+//    _spi->begin();
+//  } else { // using I2C for communication
+//    // starting the I2C bus
+//    _i2c->begin();
+//    // setting the I2C clock
+//    _i2c->setClock(_i2cRate);
+//  }
   // select clock source to gyro
   if(writeRegister(PWR_MGMNT_1,CLOCK_SEL_PLL) < 0){
     return -1;
@@ -973,18 +975,23 @@ void MPU9250::setMagCalZ(float bias,float scaleFactor) {
 int MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
   /* write data to device */
   if( _useSPI ){
-    _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
-    digitalWrite(_csPin,LOW); // select the MPU9250 chip
-    _spi->transfer(subAddress); // write the register address
-    _spi->transfer(data); // write the data
-    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
-    _spi->endTransaction(); // end the transaction
+//    _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
+//    digitalWrite(_csPin,LOW); // select the MPU9250 chip
+//    _spi->transfer(subAddress); // write the register address
+//    _spi->transfer(data); // write the data
+//    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
+//    _spi->endTransaction(); // end the transaction
   }
   else{
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // write the register address
-    _i2c->write(data); // write the data
-    _i2c->endTransmission();
+		uint8_t buffer[2] = {subAddress, data};
+
+		i2cAcquireBus(_i2c);
+		auto status = i2cMasterTransmitTimeout(_i2c, _address,
+									  buffer, sizeof(buffer),
+									  NULL, 0,
+									  TIME_MS2I(1000));
+		osalDbgCheck(MSG_OK == status);
+		i2cReleaseBus(_i2c);
   }
 
   delay(10);
@@ -1004,34 +1011,58 @@ int MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
 int MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
   if( _useSPI ){
     // begin the transaction
-    if(_useSPIHS){
-      _spi->beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-    }
-    else{
-      _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-    }
-    digitalWrite(_csPin,LOW); // select the MPU9250 chip
-    _spi->transfer(subAddress | SPI_READ); // specify the starting register address
-    for(uint8_t i = 0; i < count; i++){
-      dest[i] = _spi->transfer(0x00); // read the data
-    }
-    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
-    _spi->endTransaction(); // end the transaction
-    return 1;
+//    if(_useSPIHS){
+//      _spi->beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
+//    }
+//    else{
+//      _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
+//    }
+//    digitalWrite(_csPin,LOW); // select the MPU9250 chip
+//    _spi->transfer(subAddress | SPI_READ); // specify the starting register address
+//    for(uint8_t i = 0; i < count; i++){
+//      dest[i] = _spi->transfer(0x00); // read the data
+//    }
+//    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
+//    _spi->endTransaction(); // end the transaction
+//    return 1;
   }
   else{
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // specify the starting register address
-    _i2c->endTransmission(false);
-    _numBytes = _i2c->requestFrom(_address, count); // specify the number of bytes to receive
-    if (_numBytes == count) {
-      for(uint8_t i = 0; i < count; i++){ 
-        dest[i] = _i2c->read();
-      }
-      return 1;
-    } else {
-      return -1;
-    }
+	  if (count != 1) {
+			i2cAcquireBus(_i2c);
+			auto status = i2cMasterTransmitTimeout(_i2c, _address,
+										  &subAddress, sizeof(subAddress),
+										  dest, count,
+										  TIME_MS2I(1000));
+			osalDbgCheck(MSG_OK == status);
+			i2cReleaseBus(_i2c);
+			_numBytes = count;
+	  } else {
+		  /// case for 1 byte
+		  	  uint8_t buff[2] = {0};
+			i2cAcquireBus(_i2c);
+			auto status = i2cMasterTransmitTimeout(_i2c, _address,
+										  &subAddress, sizeof(subAddress),
+										  buff, sizeof(buff),
+										  TIME_MS2I(1000));
+			osalDbgCheck(MSG_OK == status);
+			i2cReleaseBus(_i2c);
+			dest[0] = buff[0];
+			_numBytes = count;
+	  }
+
+	  return 1;
+//    _i2c->beginTransmission(_address); // open the device
+//    _i2c->write(subAddress); // specify the starting register address
+//    _i2c->endTransmission(false);
+//    _numBytes = _i2c->requestFrom(_address, count); // specify the number of bytes to receive
+//    if (_numBytes == count) {
+//      for(uint8_t i = 0; i < count; i++){
+//        dest[i] = _i2c->read();
+//      }
+//      return 1;
+//    } else {
+//      return -1;
+//    }
   }
 }
 

@@ -24,9 +24,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 #ifndef MPU9250_h
 #define MPU9250_h
 
-#include "Arduino.h"
-#include "Wire.h"    // I2C library
-#include "SPI.h"     // SPI library
+#include <hal.h>
 
 class MPU9250{
   public:
@@ -68,8 +66,8 @@ class MPU9250{
       LP_ACCEL_ODR_250HZ = 10,
       LP_ACCEL_ODR_500HZ = 11
     };
-    MPU9250(TwoWire &bus,uint8_t address);
-    MPU9250(SPIClass &bus,uint8_t csPin);
+    MPU9250(I2CDriver &bus,uint8_t address);
+    //MPU9250(SPIClass &bus,uint8_t csPin);
     int begin();
     int setAccelRange(AccelRange range);
     int setGyroRange(GyroRange range);
@@ -120,11 +118,11 @@ class MPU9250{
   protected:
     // i2c
     uint8_t _address;
-    TwoWire *_i2c;
+    I2CDriver *_i2c;
     const uint32_t _i2cRate = 400000; // 400 kHz
     size_t _numBytes; // number of bytes received from I2C
     // spi
-    SPIClass *_spi;
+    //SPIClass *_spi;
     uint8_t _csPin;
     bool _useSPI;
     bool _useSPIHS;
@@ -277,6 +275,12 @@ class MPU9250{
     int readAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* dest);
     int whoAmI();
     int whoAmIAK8963();
+    void delay (uint32_t ms) {
+    	osalThreadSleepMilliseconds(ms);
+    }
+    long map(long x, long in_min, long in_max, long out_min, long out_max) {
+      return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+    }
 };
 
 class MPU9250FIFO: public MPU9250 {
