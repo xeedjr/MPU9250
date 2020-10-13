@@ -10,6 +10,7 @@
 MPU9250HALSTM32HALI2C::MPU9250HALSTM32HALI2C(I2C_HandleTypeDef *i2c, uint8_t address) {
 	// TODO Auto-generated constructor stub
 	this->i2c = i2c;
+	this->address = address;
 }
 
 MPU9250HALSTM32HALI2C::~MPU9250HALSTM32HALI2C() {
@@ -26,7 +27,7 @@ void MPU9250HALSTM32HALI2C::set_spi_speed(bool is_hi_speed) {
 
 int MPU9250HALSTM32HALI2C::writeRegister(uint8_t subAddress, uint8_t data) {
 
-	HAL_I2C_Mem_Write(i2c, address,
+	HAL_I2C_Mem_Write(i2c, address << 1,
 						subAddress, sizeof(subAddress),
 						&data, sizeof(data),
 						1000);
@@ -46,7 +47,7 @@ int MPU9250HALSTM32HALI2C::writeRegister(uint8_t subAddress, uint8_t data) {
 }
 
 int MPU9250HALSTM32HALI2C::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest) {
-	HAL_I2C_Mem_Read(i2c, address,
+	HAL_I2C_Mem_Read(i2c, address << 1,
 						subAddress, sizeof(subAddress),
 						dest, count,
 						1000);
@@ -54,5 +55,5 @@ int MPU9250HALSTM32HALI2C::readRegisters(uint8_t subAddress, uint8_t count, uint
 }
 
 int MPU9250HALSTM32HALI2C::delay(uint32_t ms) {
-
+	HAL_Delay(ms);
 }
