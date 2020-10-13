@@ -20,41 +20,21 @@ NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FO
 DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
+#include <string.h>
+#include <stdlib.h>
 
-#include "Arduino.h"
 #include "MPU9250.h"
 
 /* MPU9250 object, input the I2C bus and address */
-MPU9250::MPU9250(TwoWire &bus,uint8_t address){
-  _i2c = &bus; // I2C bus
-  _address = address; // I2C address
-  _useSPI = false; // set to use I2C
-}
-
-/* MPU9250 object, input the SPI bus and chip select pin */
-MPU9250::MPU9250(SPIClass &bus,uint8_t csPin){
-  _spi = &bus; // SPI bus
-  _csPin = csPin; // chip select pin
-  _useSPI = true; // set to use SPI
+MPU9250::MPU9250(MPU9250HAL *hal){
+	this->hal = hal;
 }
 
 /* starts communication with the MPU-9250 */
 int MPU9250::begin(){
-  if( _useSPI ) { // using SPI for communication
-    // use low speed SPI for register setting
-    _useSPIHS = false;
-    // setting CS pin to output
-    pinMode(_csPin,OUTPUT);
-    // setting CS pin high
-    digitalWrite(_csPin,HIGH);
-    // begin SPI communication
-    _spi->begin();
-  } else { // using I2C for communication
-    // starting the I2C bus
-    _i2c->begin();
-    // setting the I2C clock
-    _i2c->setClock(_i2cRate);
-  }
+	hal->set_spi_speed(false);
+	hal->begin();
+
   // select clock source to gyro
   if(writeRegister(PWR_MGMNT_1,CLOCK_SEL_PLL) < 0){
     return -1;
@@ -72,7 +52,7 @@ int MPU9250::begin(){
   // reset the MPU9250
   writeRegister(PWR_MGMNT_1,PWR_RESET);
   // wait for MPU-9250 to come back up
-  delay(1);
+  hal->delay(1);
   // reset the AK8963
   writeAK8963Register(AK8963_CNTL2,AK8963_RESET);
   // select clock source to gyro
@@ -129,12 +109,12 @@ int MPU9250::begin(){
   if(writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) < 0){
     return -15;
   }
-  delay(100); // long wait between AK8963 mode changes
+  hal->delay(100); // long wait between AK8963 mode changes
   // set AK8963 to FUSE ROM access
   if(writeAK8963Register(AK8963_CNTL1,AK8963_FUSE_ROM) < 0){
     return -16;
   }
-  delay(100); // long wait between AK8963 mode changes
+  hal->delay(100); // long wait between AK8963 mode changes
   // read the AK8963 ASA registers and compute magnetometer scale factors
   readAK8963Registers(AK8963_ASA,3,_buffer);
   _magScaleX = ((((float)_buffer[0]) - 128.0f)/(256.0f) + 1.0f) * 4912.0f / 32760.0f; // micro Tesla
@@ -144,12 +124,12 @@ int MPU9250::begin(){
   if(writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) < 0){
     return -17;
   }
-  delay(100); // long wait between AK8963 mode changes  
+  hal->delay(100); // long wait between AK8963 mode changes
   // set AK8963 to 16 bit resolution, 100 Hz update rate
   if(writeAK8963Register(AK8963_CNTL1,AK8963_CNT_MEAS2) < 0){
     return -18;
   }
-  delay(100); // long wait between AK8963 mode changes
+  hal->delay(100); // long wait between AK8963 mode changes
   // select clock source to gyro
   if(writeRegister(PWR_MGMNT_1,CLOCK_SEL_PLL) < 0){
     return -19;
@@ -167,7 +147,7 @@ int MPU9250::begin(){
 /* sets the accelerometer full scale range to values other than default */
 int MPU9250::setAccelRange(AccelRange range) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   switch(range) {
     case ACCEL_RANGE_2G: {
       // setting the accel range to 2G
@@ -209,7 +189,7 @@ int MPU9250::setAccelRange(AccelRange range) {
 /* sets the gyro full scale range to values other than default */
 int MPU9250::setGyroRange(GyroRange range) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   switch(range) {
     case GYRO_RANGE_250DPS: {
       // setting the gyro range to 250DPS
@@ -251,7 +231,7 @@ int MPU9250::setGyroRange(GyroRange range) {
 /* sets the DLPF bandwidth to values other than default */
 int MPU9250::setDlpfBandwidth(DlpfBandwidth bandwidth) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   switch(bandwidth) {
     case DLPF_BANDWIDTH_184HZ: {
       if(writeRegister(ACCEL_CONFIG2,ACCEL_DLPF_184) < 0){ // setting accel bandwidth to 184Hz
@@ -315,7 +295,7 @@ int MPU9250::setDlpfBandwidth(DlpfBandwidth bandwidth) {
 /* sets the sample rate divider to values other than default */
 int MPU9250::setSrd(uint8_t srd) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   /* setting the sample rate divider to 19 to facilitate setting up magnetometer */
   if(writeRegister(SMPDIV,19) < 0){ // setting the sample rate divider
     return -1;
@@ -325,12 +305,12 @@ int MPU9250::setSrd(uint8_t srd) {
     if(writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) < 0){
       return -2;
     }
-    delay(100); // long wait between AK8963 mode changes  
+    hal->delay(100); // long wait between AK8963 mode changes
     // set AK8963 to 16 bit resolution, 8 Hz update rate
     if(writeAK8963Register(AK8963_CNTL1,AK8963_CNT_MEAS1) < 0){
       return -3;
     }
-    delay(100); // long wait between AK8963 mode changes     
+    hal->delay(100); // long wait between AK8963 mode changes
     // instruct the MPU9250 to get 7 bytes of data from the AK8963 at the sample rate
     readAK8963Registers(AK8963_HXL,7,_buffer);
   } else {
@@ -338,12 +318,12 @@ int MPU9250::setSrd(uint8_t srd) {
     if(writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN) < 0){
       return -2;
     }
-    delay(100); // long wait between AK8963 mode changes  
+    hal->delay(100); // long wait between AK8963 mode changes
     // set AK8963 to 16 bit resolution, 100 Hz update rate
     if(writeAK8963Register(AK8963_CNTL1,AK8963_CNT_MEAS2) < 0){
       return -3;
     }
-    delay(100); // long wait between AK8963 mode changes     
+    hal->delay(100); // long wait between AK8963 mode changes
     // instruct the MPU9250 to get 7 bytes of data from the AK8963 at the sample rate
     readAK8963Registers(AK8963_HXL,7,_buffer);    
   } 
@@ -358,7 +338,7 @@ int MPU9250::setSrd(uint8_t srd) {
 /* enables the data ready interrupt */
 int MPU9250::enableDataReadyInterrupt() {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   /* setting the interrupt */
   if (writeRegister(INT_PIN_CFG,INT_PULSE_50US) < 0){ // setup interrupt, 50 us pulse
     return -1;
@@ -372,7 +352,7 @@ int MPU9250::enableDataReadyInterrupt() {
 /* disables the data ready interrupt */
 int MPU9250::disableDataReadyInterrupt() {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   if(writeRegister(INT_ENABLE,INT_DISABLE) < 0){ // disable interrupt
     return -1;
   }  
@@ -382,13 +362,13 @@ int MPU9250::disableDataReadyInterrupt() {
 /* configures and enables wake on motion, low power mode */
 int MPU9250::enableWakeOnMotion(float womThresh_mg,LpAccelOdr odr) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   // set AK8963 to Power Down
   writeAK8963Register(AK8963_CNTL1,AK8963_PWR_DOWN);
   // reset the MPU9250
   writeRegister(PWR_MGMNT_1,PWR_RESET);
   // wait for MPU-9250 to come back up
-  delay(1);
+  hal->delay(1);
   if(writeRegister(PWR_MGMNT_1,0x00) < 0){ // cycle 0, sleep 0, standby 0
     return -1;
   } 
@@ -420,7 +400,7 @@ int MPU9250::enableWakeOnMotion(float womThresh_mg,LpAccelOdr odr) {
 /* configures and enables the FIFO buffer  */
 int MPU9250FIFO::enableFifo(bool accel,bool gyro,bool mag,bool temp) {
   // use low speed SPI for register setting
-  _useSPIHS = false;
+  hal->set_spi_speed(false);
   if(writeRegister(USER_CTRL, (0x40 | I2C_MST_EN)) < 0){
     return -1;
   }
@@ -437,7 +417,7 @@ int MPU9250FIFO::enableFifo(bool accel,bool gyro,bool mag,bool temp) {
 
 /* reads the most current data from MPU9250 and stores in buffer */
 int MPU9250::readSensor() {
-  _useSPIHS = true; // use the high speed SPI for data readout
+  hal->set_spi_speed(true); // use the high speed SPI for data readout
   // grab the data from the MPU9250
   if (readRegisters(ACCEL_OUT, 21, _buffer) < 0) {
     return -1;
@@ -519,7 +499,7 @@ float MPU9250::getTemperature_C() {
 
 /* reads data from the MPU9250 FIFO and stores in buffer */
 int MPU9250FIFO::readFifo() {
-  _useSPIHS = true; // use the high speed SPI for data readout
+  hal->set_spi_speed(true); // use the high speed SPI for data readout
   // get the fifo size
   readRegisters(FIFO_COUNT, 2, _buffer);
   _fifoSize = (((uint16_t) (_buffer[0]&0x0F)) <<8) + (((uint16_t) _buffer[1]));
@@ -655,7 +635,7 @@ int MPU9250::calibrateGyro() {
     _gxbD += (getGyroX_rads() + _gxb)/((double)_numSamples);
     _gybD += (getGyroY_rads() + _gyb)/((double)_numSamples);
     _gzbD += (getGyroZ_rads() + _gzb)/((double)_numSamples);
-    delay(20);
+    hal->delay(20);
   }
   _gxb = (float)_gxbD;
   _gyb = (float)_gybD;
@@ -728,7 +708,7 @@ int MPU9250::calibrateAccel() {
     _axbD += (getAccelX_mss()/_axs + _axb)/((double)_numSamples);
     _aybD += (getAccelY_mss()/_ays + _ayb)/((double)_numSamples);
     _azbD += (getAccelZ_mss()/_azs + _azb)/((double)_numSamples);
-    delay(20);
+    hal->delay(20);
   }
   if (_axbD > 9.0f) {
     _axmax = (float)_axbD;
@@ -897,7 +877,7 @@ int MPU9250::calibrateMag() {
     } else {
       _counter++;
     }
-    delay(20);
+    hal->delay(20);
   }
 
   // find the magnetometer bias
@@ -969,72 +949,6 @@ void MPU9250::setMagCalZ(float bias,float scaleFactor) {
   _hzs = scaleFactor;
 }
 
-/* writes a byte to MPU9250 register given a register address and data */
-int MPU9250::writeRegister(uint8_t subAddress, uint8_t data){
-  /* write data to device */
-  if( _useSPI ){
-    _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3)); // begin the transaction
-    digitalWrite(_csPin,LOW); // select the MPU9250 chip
-    _spi->transfer(subAddress); // write the register address
-    _spi->transfer(data); // write the data
-    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
-    _spi->endTransaction(); // end the transaction
-  }
-  else{
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // write the register address
-    _i2c->write(data); // write the data
-    _i2c->endTransmission();
-  }
-
-  delay(10);
-  
-  /* read back the register */
-  readRegisters(subAddress,1,_buffer);
-  /* check the read back register against the written register */
-  if(_buffer[0] == data) {
-    return 1;
-  }
-  else{
-    return -1;
-  }
-}
-
-/* reads registers from MPU9250 given a starting register address, number of bytes, and a pointer to store data */
-int MPU9250::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest){
-  if( _useSPI ){
-    // begin the transaction
-    if(_useSPIHS){
-      _spi->beginTransaction(SPISettings(SPI_HS_CLOCK, MSBFIRST, SPI_MODE3));
-    }
-    else{
-      _spi->beginTransaction(SPISettings(SPI_LS_CLOCK, MSBFIRST, SPI_MODE3));
-    }
-    digitalWrite(_csPin,LOW); // select the MPU9250 chip
-    _spi->transfer(subAddress | SPI_READ); // specify the starting register address
-    for(uint8_t i = 0; i < count; i++){
-      dest[i] = _spi->transfer(0x00); // read the data
-    }
-    digitalWrite(_csPin,HIGH); // deselect the MPU9250 chip
-    _spi->endTransaction(); // end the transaction
-    return 1;
-  }
-  else{
-    _i2c->beginTransmission(_address); // open the device
-    _i2c->write(subAddress); // specify the starting register address
-    _i2c->endTransmission(false);
-    _numBytes = _i2c->requestFrom(_address, count); // specify the number of bytes to receive
-    if (_numBytes == count) {
-      for(uint8_t i = 0; i < count; i++){ 
-        dest[i] = _i2c->read();
-      }
-      return 1;
-    } else {
-      return -1;
-    }
-  }
-}
-
 /* writes a register to the AK8963 given a register address and data */
 int MPU9250::writeAK8963Register(uint8_t subAddress, uint8_t data){
   // set slave 0 to the AK8963 and set for write
@@ -1078,7 +992,7 @@ int MPU9250::readAK8963Registers(uint8_t subAddress, uint8_t count, uint8_t* des
 	if (writeRegister(I2C_SLV0_CTRL,I2C_SLV0_EN | count) < 0) {
     return -3;
   }
-	delay(1); // takes some time for these registers to fill
+	hal->delay(1); // takes some time for these registers to fill
   // read the bytes off the MPU9250 EXT_SENS_DATA registers
 	_status = readRegisters(EXT_SENS_DATA_00,count,dest); 
   return _status;
