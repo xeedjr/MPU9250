@@ -27,10 +27,13 @@ void MPU9250HALSTM32HALI2C::set_spi_speed(bool is_hi_speed) {
 
 int MPU9250HALSTM32HALI2C::writeRegister(uint8_t subAddress, uint8_t data) {
 
-	HAL_I2C_Mem_Write(i2c, address << 1,
+	auto status = HAL_I2C_Mem_Write(i2c, address << 1,
 						subAddress, sizeof(subAddress),
 						&data, sizeof(data),
 						1000);
+	if (HAL_OK != status) {
+		return -1;
+	};
 
 	delay(10);
 
@@ -47,10 +50,13 @@ int MPU9250HALSTM32HALI2C::writeRegister(uint8_t subAddress, uint8_t data) {
 }
 
 int MPU9250HALSTM32HALI2C::readRegisters(uint8_t subAddress, uint8_t count, uint8_t* dest) {
-	HAL_I2C_Mem_Read(i2c, address << 1,
-						subAddress, sizeof(subAddress),
-						dest, count,
-						1000);
+	auto status = HAL_I2C_Mem_Read(i2c, address << 1,
+									subAddress, sizeof(subAddress),
+									dest, count,
+									1000);
+	if (HAL_OK != status) {
+		return -1;
+	};
 	return 1;
 }
 
