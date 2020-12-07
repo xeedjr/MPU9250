@@ -9,7 +9,7 @@
 #define MPU9250_SRC_MPU9250HALSTM32HALI2C_H_
 
 #include <stdint.h>
-#include "stm32f1xx_hal.h"
+#include "stm32f4xx_hal.h"
 
 #include "MPU9250HAL.h"
 
