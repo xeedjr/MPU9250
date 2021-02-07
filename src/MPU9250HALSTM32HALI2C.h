@@ -9,7 +9,13 @@
 #define MPU9250_SRC_MPU9250HALSTM32HALI2C_H_
 
 #include <stdint.h>
-#include "stm32f4xx_hal.h"
+#ifndef STM32H7
+    #include "stm32f4xx_hal.h"
+#else
+    #include "stm32common_hal.h"
+#endif
+
+#include "i2c.h"
 
 #include "MPU9250HAL.h"
 
